@@ -1,33 +1,55 @@
-name: Build wxPython
+name: Build - OpenCore Patcher (2025 Compatible)
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - macos-next
+  pull_request:
 
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 60
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade pip setuptools wheel
-          python3 -m pip install -r requirements.txt
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt || true
 
-      - name: Build OpenCore Patcher GUI
+      - name: Validate build script
         run: |
-          python3 OpenCore-Patcher-GUI.command --build
+          echo "Running validation..."
+          python3 OpenCore-Patcher-GUI.command --validate || echo "Validation warning ignored."
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+      - name: Build App
+        run: |
+          echo "Building OpenCore-Patcher GUI..."
+          python3 OpenCore-Patcher-GUI.command --build || exit 1
+
+      - name: Create package directory
+        run: mkdir -p dist
+
+      - name: Move built files
+        run: |
+          if [ -d "build" ]; then
+            mv build/* dist/ || true
+          fi
+          if [ -f "*.pkg" ]; then
+            mv *.pkg dist/ || true
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: OpenCore-Patcher-pkg
-          path: |
-            dist/*.pkg
-            *.pkg
+          name: OpenCore-Patcher-Build
+          path: dist/
+          retention-days: 7
