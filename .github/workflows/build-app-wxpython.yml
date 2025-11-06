@@ -24,21 +24,21 @@ jobs:
 
       - name: Build OpenCore Patcher GUI
         run: |
-          echo "🚀 Building OCLP GUI..."
+          echo "Building OCLP GUI..."
           python3 Build-Binary.py --gui
-          echo "✅ Build complete."
+          echo "Build complete."
 
       - name: Locate built app
         id: locate
         run: |
-          echo "🔍 Searching for built .app..."
+          echo "Searching for built .app..."
           APP_PATH=$(find . -type d -name "OpenCore-Patcher.app" -print -quit)
           if [ -z "$APP_PATH" ]; then
-            echo "⚠️ No exact match found, searching all .app files..."
+            echo "No exact match found, searching all .app files..."
             APP_PATH=$(find . -type d -name "*.app" -print -quit)
           fi
           if [ -z "$APP_PATH" ]; then
-            echo "❌ No .app found after build!" && exit 1
+            echo "No .app found after build!" && exit 1
           fi
           echo "Found app path: $APP_PATH"
           echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
@@ -53,7 +53,7 @@ jobs:
             --version 3.0.0-nightly \
             --install-location / \
             dist/OpenCore-Patcher-Nightly.pkg
-          echo "✅ .pkg created successfully."
+          echo ".pkg created successfully."
           ls -lh dist/
 
       - name: Upload .pkg
