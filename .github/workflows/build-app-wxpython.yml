@@ -1,4 +1,4 @@
-name: Build - OpenCore Patcher Nightly (Auto .pkg)
+name: Build - OpenCore Patcher Nightly (.pkg Auto)
 
 on:
   workflow_dispatch:
@@ -31,11 +31,16 @@ jobs:
       - name: Locate built app
         id: locate
         run: |
+          echo "🔍 Searching for built .app..."
           APP_PATH=$(find . -type d -name "OpenCore-Patcher.app" -print -quit)
+          if [ -z "$APP_PATH" ]; then
+            echo "⚠️ No exact match found, searching all .app files..."
+            APP_PATH=$(find . -type d -name "*.app" -print -quit)
+          fi
           if [ -z "$APP_PATH" ]; then
             echo "❌ No .app found after build!" && exit 1
           fi
-          echo "Found app at: $APP_PATH"
+          echo "Found app path: $APP_PATH"
           echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
       - name: Package .pkg
