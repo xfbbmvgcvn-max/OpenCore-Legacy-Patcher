@@ -1,4 +1,4 @@
-name: Build - OpenCore Patcher Nightly (.pkg Auto Build)
+name: Build - OpenCore Patcher Nightly (.pkg Auto Fix)
 
 on:
   workflow_dispatch:
@@ -33,22 +33,23 @@ jobs:
           ./OpenCore-Patcher-GUI.command --build || python3 OpenCore-Patcher-GUI.command --build
           echo "Build complete."
 
-      - name: List files after build
-        run: ls -R
+      - name: Locate built app
+        id: locate
+        run: |
+          echo "Searching for built .app..."
+          APP_PATH=$(find . -type d -name "OpenCore-Patcher.app" | head -n 1)
+          echo "Found: $APP_PATH"
+          if [ -z "$APP_PATH" ]; then
+            echo "No app found!" && exit 1
+          fi
+          echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
       - name: Prepare .pkg contents
         run: |
-          mkdir -p dist/root/usr/local/OpenCore-Patcher
-          if [ -d "build" ]; then
-            cp -R build/* dist/root/usr/local/OpenCore-Patcher/ || true
-          fi
-          if [ -d "dist" ]; then
-            cp -R dist/*.app dist/root/usr/local/OpenCore-Patcher/ || true
-          fi
-          if [ -f "OpenCore-Patcher.app" ]; then
-            cp -R OpenCore-Patcher.app dist/root/usr/local/OpenCore-Patcher/
-          fi
+          mkdir -p dist/root/Applications
+          cp -R "${{ steps.locate.outputs.app_path }}" dist/root/Applications/
           echo "Files prepared for packaging."
+          ls -lh dist/root/Applications
 
       - name: Create .pkg installer
         run: |
@@ -56,7 +57,7 @@ jobs:
             --root dist/root \
             --identifier com.opencore.legacy.patcher \
             --version 3.0.0-nightly \
-            --install-location /Applications \
+            --install-location / \
             dist/OpenCore-Patcher-Nightly.pkg
 
       - name: Upload .pkg artifact
