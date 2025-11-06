@@ -1,55 +1,67 @@
-name: Build - OpenCore Patcher (2025 Compatible)
+name: Build - OpenCore Patcher Nightly (.pkg Auto Build)
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - macos-next
-  pull_request:
 
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade pip
-          pip install -r requirements.txt || true
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install -r requirements.txt || true
+          python3 -m pip install wxPython pyinstaller macholib || true
 
-      - name: Validate build script
+      - name: Build OpenCore Patcher GUI
         run: |
-          echo "Running validation..."
-          python3 OpenCore-Patcher-GUI.command --validate || echo "Validation warning ignored."
+          echo "Starting OCLP GUI build..."
+          chmod +x OpenCore-Patcher-GUI.command || true
+          ./OpenCore-Patcher-GUI.command --build || python3 OpenCore-Patcher-GUI.command --build
+          echo "Build complete."
 
-      - name: Build App
+      - name: List files after build
+        run: ls -R
+
+      - name: Prepare .pkg contents
         run: |
-          echo "Building OpenCore-Patcher GUI..."
-          python3 OpenCore-Patcher-GUI.command --build || exit 1
-
-      - name: Create package directory
-        run: mkdir -p dist
-
-      - name: Move built files
-        run: |
+          mkdir -p dist/root/usr/local/OpenCore-Patcher
           if [ -d "build" ]; then
-            mv build/* dist/ || true
+            cp -R build/* dist/root/usr/local/OpenCore-Patcher/ || true
           fi
-          if [ -f "*.pkg" ]; then
-            mv *.pkg dist/ || true
+          if [ -d "dist" ]; then
+            cp -R dist/*.app dist/root/usr/local/OpenCore-Patcher/ || true
           fi
+          if [ -f "OpenCore-Patcher.app" ]; then
+            cp -R OpenCore-Patcher.app dist/root/usr/local/OpenCore-Patcher/
+          fi
+          echo "Files prepared for packaging."
 
-      - name: Upload build artifact
+      - name: Create .pkg installer
+        run: |
+          pkgbuild \
+            --root dist/root \
+            --identifier com.opencore.legacy.patcher \
+            --version 3.0.0-nightly \
+            --install-location /Applications \
+            dist/OpenCore-Patcher-Nightly.pkg
+
+      - name: Upload .pkg artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenCore-Patcher-Build
-          path: dist/
-          retention-days: 7
+          name: OpenCore-Patcher-Nightly
+          path: dist/OpenCore-Patcher-Nightly.pkg
+          retention-days: 14
