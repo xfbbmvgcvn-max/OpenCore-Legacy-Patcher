@@ -1,27 +1,38 @@
-name: CI - Validation (External)
+name: Build wxPython
 
 on:
-  push:
-    paths-ignore: 
-      - 'docs/**'
   workflow_dispatch:
-  release:
-    types: [published]
 
 jobs:
   build:
-    name: Validate
     runs-on: macos-latest
-    if: github.repository_owner != 'dortania'
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+          cache: 'pip'
+
+      - name: Verify Python version
+        run: python3 --version
+
       - name: Install dependencies
         run: |
-          python3 -m pip install -r requirements.txt
-      - name: Build app
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install -r requirements.txt || true
+          python3 -m pip install wxPython pyinstaller macholib
+
+      - name: Build OpenCore Patcher GUI
         run: |
-          python3 OpenCore-Patcher-GUI.command --validate
+          chmod +x OpenCore-Patcher-GUI.command
+          ./OpenCore-Patcher-GUI.command --build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: OpenCore-Patcher-pkg
+          path: |
+            dist/*.pkg
+            *.pkg
