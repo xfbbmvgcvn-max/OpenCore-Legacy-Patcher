@@ -1,4 +1,4 @@
-name: Build - OpenCore Patcher Nightly (.pkg Auto Fix)
+name: Build - OpenCore Patcher Nightly (.pkg Auto)
 
 on:
   workflow_dispatch:
@@ -26,38 +26,26 @@ jobs:
           python3 -m pip install -r requirements.txt || true
           python3 -m pip install wxPython pyinstaller macholib || true
 
-          - name: Locate built app (debug mode)
-  id: locate
-  run: |
-    echo "Listing .app folders for debugging..."
-    find . -type d -name "*.app" -maxdepth 5
-    echo "----"
-    APP_PATH=$(find . -type d -name "OpenCore-Patcher.app" -maxdepth 5 | head -n 1)
-    if [ -z "$APP_PATH" ]; then
-      echo "⚠️ No exact 'OpenCore-Patcher.app' found, searching all .app files..."
-      APP_PATH=$(find . -type d -name "*.app" -maxdepth 5 | head -n 1)
-    fi
-    echo "Found app path: $APP_PATH"
-    if [ -z "$APP_PATH" ]; then
-      echo "No .app found at all. Build may have failed earlier." && exit 1
-    fi
-    echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
-
       - name: Build OpenCore Patcher GUI
         run: |
-          echo "Starting OCLP GUI build..."
+          echo "🚀 Starting OCLP GUI build..."
           chmod +x OpenCore-Patcher-GUI.command || true
           ./OpenCore-Patcher-GUI.command --build || python3 OpenCore-Patcher-GUI.command --build
-          echo "Build complete."
+          echo "✅ Build complete."
 
       - name: Locate built app
         id: locate
         run: |
-          echo "Searching for built .app..."
-          APP_PATH=$(find . -type d -name "OpenCore-Patcher.app" | head -n 1)
-          echo "Found: $APP_PATH"
+          echo "🔍 Searching for built .app..."
+          find . -type d -name "*.app" -maxdepth 6 || true
+          APP_PATH=$(find . -type d -name "OpenCore-Patcher.app" -maxdepth 6 | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            echo "No app found!" && exit 1
+            echo "⚠️ No exact match found, trying any .app"
+            APP_PATH=$(find . -type d -name "*.app" -maxdepth 6 | head -n 1)
+          fi
+          echo "Found app path: $APP_PATH"
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ No .app found after build. Check build logs!" && exit 1
           fi
           echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
@@ -65,17 +53,20 @@ jobs:
         run: |
           mkdir -p dist/root/Applications
           cp -R "${{ steps.locate.outputs.app_path }}" dist/root/Applications/
-          echo "Files prepared for packaging."
+          echo "📦 Copied app into package root."
           ls -lh dist/root/Applications
 
       - name: Create .pkg installer
         run: |
+          echo "📦 Creating .pkg installer..."
           pkgbuild \
             --root dist/root \
             --identifier com.opencore.legacy.patcher \
             --version 3.0.0-nightly \
             --install-location / \
             dist/OpenCore-Patcher-Nightly.pkg
+          echo "✅ .pkg created successfully."
+          ls -lh dist/
 
       - name: Upload .pkg artifact
         uses: actions/upload-artifact@v4
