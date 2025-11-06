@@ -1,4 +1,4 @@
-name: Build - OpenCore Patcher Nightly (.pkg Auto)
+name: Build - OpenCore Patcher Nightly (Auto .pkg)
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -20,49 +20,38 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip setuptools wheel
-          python3 -m pip install -r requirements.txt || true
           python3 -m pip install wxPython pyinstaller macholib || true
 
       - name: Build OpenCore Patcher GUI
         run: |
-          echo "🚀 Building OCLP GUI (new method)..."
+          echo "🚀 Building OCLP GUI..."
           python3 Build-Binary.py --gui
           echo "✅ Build complete."
-
-      - name: Debug file tree
-        run: |
-          echo "---- BUILD TREE ----"
-          find . -maxdepth 4 -type d
-          echo "---- FILES ----"
-          find . -type f -maxdepth 4 | grep -E "OpenCore|.pkg|.app|.py" || true
 
       - name: Locate built app
         id: locate
         run: |
-          APP_PATH=$(find . -type d -name "OpenCore-Patcher.app" -maxdepth 6 | head -n 1)
-          echo "Found: $APP_PATH"
+          APP_PATH=$(find . -type d -name "OpenCore-Patcher.app" -print -quit)
           if [ -z "$APP_PATH" ]; then
-            echo "❌ Build failed, no .app found!" && exit 1
+            echo "❌ No .app found after build!" && exit 1
           fi
+          echo "Found app at: $APP_PATH"
           echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
-      - name: Prepare .pkg
+      - name: Package .pkg
         run: |
           mkdir -p dist/root/Applications
           cp -R "${{ steps.locate.outputs.app_path }}" dist/root/Applications/
-          ls -lh dist/root/Applications
-
-      - name: Create .pkg installer
-        run: |
           pkgbuild \
             --root dist/root \
             --identifier com.opencore.legacy.patcher \
             --version 3.0.0-nightly \
             --install-location / \
             dist/OpenCore-Patcher-Nightly.pkg
+          echo "✅ .pkg created successfully."
           ls -lh dist/
 
-      - name: Upload .pkg artifact
+      - name: Upload .pkg
         uses: actions/upload-artifact@v4
         with:
           name: OpenCore-Patcher-Nightly
